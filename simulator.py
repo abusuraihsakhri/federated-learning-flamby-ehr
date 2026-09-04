@@ -1,14 +1,19 @@
 """
 Distributed Component High-Throughput Traffic & Stress Testing Simulator for Federated Learning Flamby Ehr.
 """
+import argparse
 import time
 import random
-import sys
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
 from agents.base import PHIGuard, SecurityException, AuditLogger
 
-def run_simulation(iterations: int = 100):
+
+def run_simulation(iterations: int = 100, seed: int = None):
+    """Run a distributed component simulation with the specified number of iterations."""
+    if seed is not None:
+        random.seed(seed)
+
     print(f"Starting Distributed Component Simulation on Federated Learning Flamby Ehr ({iterations} tasks)...")
     supervisor = SystemSupervisor(model_provider="mock")
     start_time = time.time()
@@ -49,11 +54,12 @@ def run_simulation(iterations: int = 100):
                 phi_blocked_count += 1
 
     elapsed = time.time() - start_time
+    rate = iterations / max(0.001, elapsed)
     print("\n" + "=" * 70)
-    print(f"  SIMULATION SUMMARY FOR FEDERATED LEARNING FLAMBY EHR")
+    print("  SIMULATION SUMMARY FOR FEDERATED LEARNING FLAMBY EHR")
     print("=" * 70)
     print(f"  Total Tasks Processed:     {iterations}")
-    print(f"  Elapsed Time:              {elapsed:.3f} seconds ({iterations/max(0.001, elapsed):.1f} tasks/sec)")
+    print(f"  Elapsed Time:              {elapsed:.3f} seconds ({rate:.1f} tasks/sec)")
     print(f"  Routine Outcomes:          {nominal_count} ({nominal_count/iterations*100:.1f}%)")
     print(f"  Elevated Risk Outcomes:    {elevated_count} ({elevated_count/iterations*100:.1f}%)")
     print(f"  Critical Interventions:    {critical_count} ({critical_count/iterations*100:.1f}%)")
@@ -61,7 +67,24 @@ def run_simulation(iterations: int = 100):
     print(f"  HMAC Audit Ledger Blocks:  {len(AuditLogger.get_trail())}")
     print(f"  HMAC Cryptographic Check:  {AuditLogger.verify_integrity()}")
     print("=" * 70)
+    return {
+        "total": iterations,
+        "elapsed_sec": round(elapsed, 3),
+        "rate": round(rate, 1),
+        "nominal": nominal_count,
+        "elevated": elevated_count,
+        "critical": critical_count,
+        "phi_blocked": phi_blocked_count,
+        "audit_verified": AuditLogger.verify_integrity(),
+    }
+
 
 if __name__ == "__main__":
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-    run_simulation(n)
+    parser = argparse.ArgumentParser(
+        prog="simulator",
+        description="Distributed Component High-Throughput Traffic & Stress Testing Simulator",
+    )
+    parser.add_argument("--tasks", type=int, default=100, help="Number of tasks to simulate (default: 100)")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
+    args = parser.parse_args()
+    run_simulation(args.tasks, seed=args.seed)

@@ -25,3 +25,6 @@ federated-learning-flamby-ehr = "federated_learning_ehr.cli:main"
 [project.urls]
 Homepage = "https://github.com/abusuraihsakhri/federated-learning-flamby-ehr"
 Repository = "https://github.com/abusuraihsakhri/federated-learning-flamby-ehr.git"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

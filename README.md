@@ -1,6 +1,6 @@
 # Federated Learning Flamby Ehr
 
-> **Domain:** Privacy-Preserving Healthcare & Federated Computing  
+> **Domain:** Privacy-Preserving Healthcare & Federated Computing
 > **Reference Guidelines & Standards:** `HIPAA Safe Harbor §164.514 & Differential Privacy RDP`
 
 <div align="center">
@@ -18,82 +18,156 @@
 
 ## 📖 What It Does
 
-**Federated Learning Flamby Ehr** is an advanced analytical and computational platform implementing Federated Averaging (FedAvg) & Google Secure Aggregation (SecAgg) multi-hospital EHR agent.
+**Federated Learning Flamby Ehr** is a federated learning platform implementing Federated Averaging (FedAvg) & Secure Aggregation (SecAgg) for multi-hospital EHR analytics. It provides a multi-worker evaluation system with Byzantine-resilient aggregation, verifiable secret sharing for dropout resilience, and strict PHI (Protected Health Information) outbound guardrails.
 
 ---
 
 ## ⚙️ Key Capabilities & Algorithmic Modules
 
-- **Deterministic Calculation Engine**: Strict compliance with standard reference formulations and thresholds.
-- **Risk & Urgency Classification**: Multi-tier categorization with automated clinical/operational action recommendations.
-- **Validation & Guardrails**: Rigorous input bounds checking and anomaly detection.
+- **Multi-Worker Evaluation**: Three specialized workers (InvariantQC, SafetyEscalation, ProtocolConformance) evaluate tasks in parallel
+- **Byzantine-Resilient Aggregation**: Krum, Multi-Krum, and Trimmed Mean algorithms to detect and reject poisoned model updates
+- **Verifiable Secret Sharing (VSS)**: Feldman VSS for dropout-resilient SecAgg
+- **Zero-PHI Outbound Guard**: AST and regex inspection blocking SSNs, MRNs, phone numbers, emails, and patient identifiers
+- **HMAC-SHA256 Audit Trail**: Cryptographically chained, tamper-evident logging
+- **Cross-Silo Data Partitioning**: Dirichlet, quantity skew, label skew strategies for non-IID hospital data
+- **Active Learning Calibration**: Bayesian worker reliability weight tracking
+- **FastAPI REST API**: OpenAPI 3.1 endpoints with Prometheus telemetry
 
 ---
 
-## 💻 CLI Quickstart & Usage
+## 🚀 Quickstart
 
-### 1. Guided Interactive Mode
+### Prerequisites
+- Python 3.9+
+- Set the `AUDIT_SECRET_KEY` environment variable (minimum 16 characters)
+
 ```bash
-python cli.py
+# Clone and setup
+git clone https://github.com/abusuraihsakhri/federated-learning-flamby-ehr.git
+cd federated-learning-flamby-ehr
+
+# Set required environment variable
+export AUDIT_SECRET_KEY="your-secure-key-here"  # Linux/macOS
+set AUDIT_SECRET_KEY=your-secure-key-here        # Windows
 ```
 
-### 2. Direct Parameterized Evaluation
+### Install Dependencies
 ```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
+pip install fastapi uvicorn pydantic pytest
 ```
 
-### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
-
-### Input Data Schema
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `task_id` | Parameter / observation metric | Required |
-| `target_identifier` | Parameter / observation metric | Required |
-| `primary_metric` | Parameter / observation metric | Required |
-| `secondary_metric` | Parameter / observation metric | Required |
-| `is_critical_flag` | Parameter / observation metric | Required |
-| `status_descriptor` | Parameter / observation metric | Required |
+### Generate a Secure Audit Key
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
 
 ---
 
-## 🛡️ Security & Enterprise Architecture
+## 💻 CLI Usage
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+### Single Task Evaluation
+```bash
+python cli.py audit --task-id TASK-001 --target KEY-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
+```
+
+### Batch CSV Processing
+```bash
+python cli.py batch -i sample.csv -o results.csv
+```
+
+### Supervisory Chat
+```bash
+python cli.py chat "What is the system status?"
+```
+
+### Verify Audit Trail
+```bash
+python cli.py verify-audit
+```
+
+### Launch REST API Server
+```bash
+python cli.py serve --host 127.0.0.1 --port 8000
+```
+
+### High-Throughput Simulation
+```bash
+python simulator.py --tasks 1000 --seed 42
+```
 
 ---
 
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+## 🐳 Docker Deployment
 
 ```bash
+# Copy and customize environment
+cp .env.example .env
+# Edit .env with your secure AUDIT_SECRET_KEY
+
+# Build and run
+docker compose up --build
+# API available at http://localhost:8000
+```
+
+---
+
+## 🛡️ Security Architecture
+
+* **Zero-PHI Outbound Interceptor:** Blocks SSNs, MRNs, phone numbers, emails, DOB patterns, and known patient name patterns from any outbound data stream.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition. Key must be provided via `AUDIT_SECRET_KEY` environment variable.
+* **Byzantine Detection:** Cosine similarity-based anomaly detection flags compromised hospital nodes with configurable trust score decay.
+* **Secure Defaults:** No hardcoded secrets; audit key required at startup with minimum 16-character length enforcement.
+
+---
+
+## 🧪 Testing
+
+```bash
+# Set test key and run full suite
+export AUDIT_SECRET_KEY="test-audit-secret-key-for-pytest-suite-2026"
 pytest -v
 ```
 
-Execute high-throughput batch simulation benchmarks:
+Test coverage includes:
+- PHI guard enforcement (SSN, MRN, email blocking)
+- Specialized worker alert generation
+- Supervisor consensus and audit integrity
+- Audit key validation and short-key rejection
+- Batch CSV processing with malformed row handling
+- Simulator deterministic output with seed control
 
-```bash
-python simulator.py --tasks 1000 --concurrency 8
+---
+
+## 📁 Project Structure
+
+```
+federated-learning-flamby-ehr/
+├── agents/                        # Core evaluation workers and API
+│   ├── base.py                    # PHI guard, audit trail, security exceptions
+│   ├── supervisor.py              # Multi-worker orchestrator
+│   ├── workers.py                 # InvariantQC, SafetyEscalation, ProtocolConformance
+│   ├── models.py                  # Pydantic schemas
+│   ├── api.py                     # FastAPI endpoints
+│   ├── learning.py                # Bayesian calibration engine
+│   ├── metrics.py                 # Prometheus exporter
+│   └── streamer.py                # WebSocket telemetry
+├── federated_learning_ehr/        # Federated learning algorithms
+│   ├── byzantine_aggregators.py   # Krum, Multi-Krum, Trimmed Mean
+│   ├── dropout_handler.py         # Verifiable Secret Sharing for dropout resilience
+│   ├── partitioner.py             # Non-IID data partitioning strategies
+│   ├── engine.py                  # Domain evaluation engine
+│   └── agents.py                  # Federated coordinator and sub-agents
+├── tests/                         # Pytest test suite
+├── web/index.html                 # Operations console UI
+├── cli.py                         # Main CLI entry point
+├── simulator.py                   # High-throughput testing simulator
+├── enrichment.py                  # Feature evaluation engines
+├── docker-compose.yml             # Container orchestration
+└── pyproject.toml                 # Project metadata
 ```
 
 ---
 
-## 🐳 Container Deployment
+## 📄 License
 
-```bash
-docker build -t federated-learning-flamby-ehr .
-docker run -p 8000:8000 federated-learning-flamby-ehr
-```
+MIT License - see [LICENSE](LICENSE) for details.
