@@ -14,6 +14,16 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def _validated_updates(updates: List[np.ndarray]) -> List[np.ndarray]:
+    if not updates:
+        raise ValueError("At least one model update is required")
+    arrays = [np.asarray(update, dtype=float) for update in updates]
+    shape = arrays[0].shape
+    if not shape or any(a.shape != shape or not np.all(np.isfinite(a)) for a in arrays):
+        raise ValueError("Model updates must be finite arrays of identical shape")
+    return arrays
+
+
 class AggregationMethod(str, Enum):
     FEDAVG = "fedavg"
     KRUM = "krum"
@@ -111,8 +121,13 @@ class KrumAggregator:
         self.byzantine_fraction = byzantine_fraction
 
     def aggregate(self, updates: List[np.ndarray]) -> np.ndarray:
+        updates = _validated_updates(updates)
         n = len(updates)
-        f = int(math.floor((n - 2) / 2))  # max Byzantine tolerance
+        if n < 3 or not (0 <= self.byzantine_fraction < 0.5):
+            raise ValueError("Krum requires at least three updates and 0 <= Byzantine fraction < 0.5")
+        f = int(math.floor(n * self.byzantine_fraction))
+        if n < 2 * f + 3:
+            raise ValueError("Not enough updates to tolerate the configured Byzantine clients")
         k = n - f - 2
         if k < 1:
             k = 1
@@ -142,8 +157,13 @@ class MultiKrumAggregator:
         self.m = m
 
     def aggregate(self, updates: List[np.ndarray]) -> np.ndarray:
+        updates = _validated_updates(updates)
         n = len(updates)
-        f = int(math.floor((n - 2) / 2))
+        if n < 3 or not (0 <= self.byzantine_fraction < 0.5):
+            raise ValueError("Multi-Krum requires at least three updates and 0 <= Byzantine fraction < 0.5")
+        f = int(math.floor(n * self.byzantine_fraction))
+        if n < 2 * f + 3 or not (1 <= self.m <= n - f - 2):
+            raise ValueError("Invalid Byzantine budget or Multi-Krum selection count")
         k = n - f - 2
         if k < 1:
             k = 1
@@ -176,13 +196,16 @@ class TrimmedMeanAggregator:
         self.trim_fraction = trim_fraction
 
     def aggregate(self, updates: List[np.ndarray]) -> np.ndarray:
+        updates = _validated_updates(updates)
         n = len(updates)
-        trim_count = max(1, int(n * self.trim_fraction))
+        if not (0 <= self.trim_fraction < 0.5):
+            raise ValueError("Trim fraction must be between 0 (inclusive) and 0.5")
+        trim_count = int(n * self.trim_fraction)
         stacked = np.stack(updates, axis=0)  # (n, d)
         sorted_updates = np.sort(stacked, axis=0)
         trimmed = sorted_updates[trim_count : n - trim_count]
         if len(trimmed) == 0:
-            trimmed = sorted_updates
+            raise ValueError("Trim fraction removes every update")
         result = np.mean(trimmed, axis=0)
         logger.info(
             f"Trimmed Mean aggregated {n} updates, trimmed {trim_count} from each side"
@@ -199,13 +222,14 @@ class FedAvgAggregator:
     def aggregate(
         self, updates: List[np.ndarray], weights: Optional[List[float]] = None
     ) -> np.ndarray:
+        updates = _validated_updates(updates)
         if weights is None:
-            weights = [1.0 / len(updates)] * len(updates)
-        total = sum(weights)
-        result = np.zeros_like(updates[0])
-        for w, u in zip(weights, updates):
-            result += (w / total) * u
-        return result
+            weights = [1.0] * len(updates)
+        if (len(weights) != len(updates) or
+                any(not math.isfinite(w) or w < 0 for w in weights) or
+                sum(weights) <= 0):
+            raise ValueError("Weights must be finite, nonnegative, and match the updates")
+        return np.average(np.stack(updates), axis=0, weights=weights)
 
 
 class ByzantineResilientAggregator:
@@ -232,6 +256,9 @@ class ByzantineResilientAggregator:
         weights: Optional[List[float]] = None,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """Aggregate updates with Byzantine resilience. Returns (result, metadata)."""
+        updates = _validated_updates(updates)
+        if len(site_ids) != len(updates) or len(site_ids) != len(set(site_ids)):
+            raise ValueError("Site identifiers must be unique and match the updates")
         anomalies = self.detector.detect_anomalies(site_ids, updates)
         flagged = [sid for sid, is_anom in anomalies.items() if is_anom]
 
