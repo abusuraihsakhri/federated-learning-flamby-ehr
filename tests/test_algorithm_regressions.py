@@ -106,3 +106,49 @@ def test_label_skew_assigns_every_record_exactly_once():
     partitions = DataPartitioner(config).partition_dataset(labels, num_classes=2)
     assigned = np.concatenate([p.sample_indices for p in partitions])
     np.testing.assert_array_equal(np.sort(assigned), np.arange(len(labels)))
+
+
+def test_quantity_skew_assigns_every_record_exactly_once():
+    labels = np.array([0] * 80 + [1] * 20)
+    config = PartitionConfig(strategy=PartitionStrategy.QUANTITY_SKEW, num_sites=5)
+    partitions = DataPartitioner(config).partition_dataset(labels, num_classes=2)
+    assigned = np.concatenate([p.sample_indices for p in partitions])
+    np.testing.assert_array_equal(np.sort(assigned), np.arange(len(labels)))
+
+
+@pytest.mark.parametrize("strategy", [PartitionStrategy.TEMPORAL_SKEW, PartitionStrategy.MIXED])
+def test_unsupported_partition_modes_fail_explicitly(strategy):
+    labels = np.array([0, 1, 0, 1])
+    config = PartitionConfig(strategy=strategy, num_sites=2)
+    with pytest.raises(NotImplementedError):
+        DataPartitioner(config).partition_dataset(labels, 2)
+
+
+def test_legacy_cli_preserves_false_boolean_csv_value(tmp_path):
+    import csv
+    from federated_learning_ehr.cli import main as legacy_main
+
+    src = tmp_path / "tasks.csv"
+    dst = tmp_path / "output.csv"
+    fieldnames = ["task_id", "target_identifier", "primary_metric", "secondary_metric",
+                  "status_descriptor", "is_critical_flag"]
+    with src.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for value in ("False", "True"):
+            writer.writerow({
+                "task_id": "TEST-" + value, "target_identifier": "SYNTHETIC-01",
+                "primary_metric": "0", "secondary_metric": "0",
+                "status_descriptor": "NOMINAL", "is_critical_flag": value,
+            })
+    assert legacy_main(["batch", "-i", str(src), "-o", str(dst)]) == 0
+    with dst.open(newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert rows[0]["critical_count"] == "0"
+    assert rows[1]["critical_count"] == "1"
+
+
+def test_simulation_rejects_empty_workloads():
+    from simulator import run_simulation
+    with pytest.raises(ValueError, match="positive"):
+        run_simulation(0)
