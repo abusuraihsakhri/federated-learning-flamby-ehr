@@ -45,3 +45,21 @@ def test_api_rejects_nonfinite_telemetry():
         "primary_metric": "NaN",
     })
     assert response.status_code == 422
+
+
+def test_browser_console_javascript_is_valid(tmp_path):
+    import re
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        import pytest
+        pytest.skip("Node.js is required for the browser syntax check")
+    html = (Path(__file__).resolve().parent.parent / "web" / "index.html").read_text(encoding="utf-8")
+    match = re.search(r"<script>(.*?)</script>", html, flags=re.DOTALL)
+    assert match is not None
+    script = tmp_path / "console.js"
+    script.write_text(match.group(1), encoding="utf-8")
+    result = subprocess.run(["node", "--check", str(script)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
