@@ -54,7 +54,10 @@ class DirichletPartitioner:
         self, labels: np.ndarray, num_classes: int
     ) -> List[np.ndarray]:
         """Partition sample indices using Dirichlet distribution."""
-        n = len(labels)
+        if self.num_sites < 1 or self.alpha <= 0 or num_classes < 1:
+            raise ValueError("Positive site count, Dirichlet alpha, and class count required")
+        if np.any((labels < 0) | (labels >= num_classes)):
+            raise ValueError("Labels must be integer class identifiers within range")
         indices_by_class = {
             c: np.where(labels == c)[0] for c in range(num_classes)
         }
@@ -193,8 +196,15 @@ class DataPartitioner:
         site_ids: Optional[List[str]] = None,
     ) -> List[SitePartition]:
         """Partition dataset across hospital sites."""
+        labels = np.asarray(labels)
+        if labels.ndim != 1 or num_classes < 1:
+            raise ValueError("Expected one-dimensional labels and a positive class count")
         if site_ids is None:
             site_ids = [f"hospital_{i}" for i in range(self.config.num_sites)]
+        if len(site_ids) != self.config.num_sites or len(set(site_ids)) != len(site_ids):
+            raise ValueError("Site IDs must uniquely match the configured site count")
+        if self.config.num_sites < 1:
+            raise ValueError("Number of sites must be positive")
 
         if self.config.strategy == PartitionStrategy.DIRICHLET:
             site_index_arrays = self.dirichlet.partition(labels, num_classes)
@@ -236,26 +246,26 @@ class DataPartitioner:
         distributions: List[Dict[int, float]],
     ) -> List[np.ndarray]:
         """Partition samples according to specified label distributions."""
-        n = len(labels)
-        indices_by_class = {
-            c: np.where(labels == c)[0] for c in range(num_classes)
-        }
-        for c in indices_by_class:
-            np.random.shuffle(indices_by_class[c])
-
-        site_indices: List[List[int]] = [[] for _ in range(len(distributions))]
-        class_offsets = {c: 0 for c in range(num_classes)}
-        samples_per_site = n // len(distributions)
-
-        for site_idx, dist in enumerate(distributions):
-            for c in range(num_classes):
-                count = int(dist.get(c, 0) * samples_per_site)
-                available = len(indices_by_class[c]) - class_offsets[c]
-                count = min(count, available)
-                start = class_offsets[c]
-                site_indices[site_idx].extend(
-                    indices_by_class[c][start : start + count].tolist()
-                )
-                class_offsets[c] += count
-
-        return [np.array(indices) for indices in site_indices]
+        if not distributions or num_classes < 1:
+            raise ValueError("Expected site distributions and a positive class count")
+        if np.any((labels < 0) | (labels >= num_classes)):
+            raise ValueError("Labels must be integer class identifiers within range")
+        site_indices: List[List[int]] = [[] for _ in distributions]
+        for c in range(num_classes):
+            indices = np.where(labels == c)[0]
+            np.random.shuffle(indices)
+            weights = np.array([max(0.0, dist.get(c, 0.0)) for dist in distributions])
+            if not np.all(np.isfinite(weights)):
+                raise ValueError("Site distribution weights must be finite")
+            if weights.sum() == 0:
+                weights = np.ones(len(distributions))
+            raw_counts = len(indices) * weights / weights.sum()
+            counts = np.floor(raw_counts).astype(int)
+            # Largest-remainder allocation retains every example exactly once.
+            for site_idx in np.argsort(-(raw_counts - counts), kind="stable")[:len(indices) - counts.sum()]:
+                counts[site_idx] += 1
+            offset = 0
+            for site_idx, count in enumerate(counts):
+                site_indices[site_idx].extend(indices[offset:offset + count].tolist())
+                offset += count
+        return [np.asarray(indices, dtype=int) for indices in site_indices]
