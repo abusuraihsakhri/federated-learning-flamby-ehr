@@ -7,6 +7,7 @@ Standard: Google SecAgg / Federated Learning Standards
 import hashlib
 import logging
 import secrets
+from copy import deepcopy
 import time
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
@@ -126,7 +127,7 @@ class VerifiableSecretSharing:
                 node_id=f"node_{i}",
                 share_index=i,
                 share_value=share_value,
-                commitment=commitments,
+                commitment=list(commitments),
                 group_modulus=self.group_modulus,
                 generator=self.generator,
             )
@@ -228,7 +229,7 @@ class DropoutHandler:
             shares, commitments = self.vss.split_secret(secret, num_nodes, threshold)
             all_shares[node_id] = shares
             self.round_shares[round_number][node_id] = {
-                share.share_index: share for share in shares
+                share.share_index: deepcopy(share) for share in shares
             }
         return all_shares
 
@@ -251,6 +252,8 @@ class DropoutHandler:
         if len({s.share_index for s in selected}) != threshold or any(
             s.share_index not in registered
             or s.commitment != registered[s.share_index].commitment
+            or s.group_modulus != registered[s.share_index].group_modulus
+            or s.generator != registered[s.share_index].generator
             or not self.verify_share_integrity(s)
             for s in selected
         ):
