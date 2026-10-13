@@ -54,6 +54,8 @@ class DirichletPartitioner:
         self, labels: np.ndarray, num_classes: int
     ) -> List[np.ndarray]:
         """Partition sample indices using Dirichlet distribution."""
+        if not np.issubdtype(np.asarray(labels).dtype, np.integer):
+            raise ValueError("Labels must be integer class identifiers")
         if self.num_sites < 1 or self.alpha <= 0 or num_classes < 1:
             raise ValueError("Positive site count, Dirichlet alpha, and class count required")
         if np.any((labels < 0) | (labels >= num_classes)):
@@ -197,8 +199,10 @@ class DataPartitioner:
     ) -> List[SitePartition]:
         """Partition dataset across hospital sites."""
         labels = np.asarray(labels)
-        if labels.ndim != 1 or num_classes < 1:
-            raise ValueError("Expected one-dimensional labels and a positive class count")
+        if labels.ndim != 1 or num_classes < 1 or not np.issubdtype(labels.dtype, np.integer):
+            raise ValueError("Expected one-dimensional integer labels and a positive class count")
+        if np.any((labels < 0) | (labels >= num_classes)):
+            raise ValueError("Labels must be class identifiers within range")
         if site_ids is None:
             site_ids = [f"hospital_{i}" for i in range(self.config.num_sites)]
         if len(site_ids) != self.config.num_sites or len(set(site_ids)) != len(site_ids):
@@ -213,8 +217,15 @@ class DataPartitioner:
             site_index_arrays = self._partition_by_distribution(
                 labels, num_classes, distributions
             )
+        elif self.config.strategy == PartitionStrategy.QUANTITY_SKEW:
+            counts = self.quantity_skew.partition(len(labels))
+            shuffled = np.random.permutation(len(labels))
+            site_index_arrays = list(np.split(shuffled, np.cumsum(counts)[:-1]))
         else:
-            site_index_arrays = self.dirichlet.partition(labels, num_classes)
+            raise NotImplementedError(
+                f"Partition strategy {self.config.strategy} requires additional "
+                "metadata or an implementation; refusing to silently use Dirichlet"
+            )
 
         partitions = []
         for i, (site_id, indices) in enumerate(zip(site_ids, site_index_arrays)):
