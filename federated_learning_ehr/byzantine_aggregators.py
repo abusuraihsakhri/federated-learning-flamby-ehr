@@ -19,7 +19,7 @@ def _validated_updates(updates: List[np.ndarray]) -> List[np.ndarray]:
         raise ValueError("At least one model update is required")
     arrays = [np.asarray(update, dtype=float) for update in updates]
     shape = arrays[0].shape
-    if not shape or any(a.shape != shape or not np.all(np.isfinite(a)) for a in arrays):
+    if not shape or arrays[0].size == 0 or any(a.shape != shape or not np.all(np.isfinite(a)) for a in arrays):
         raise ValueError("Model updates must be finite arrays of identical shape")
     return arrays
 
@@ -77,7 +77,7 @@ class ByzantineDetector:
     ) -> np.ndarray:
         """Compute pairwise cosine similarity between model updates."""
         n = len(updates)
-        sim_matrix = np.zeros((n, n))
+        sim_matrix = np.eye(n, dtype=float)
         for i in range(n):
             for j in range(i + 1, n):
                 norm_i = np.linalg.norm(updates[i])
@@ -85,7 +85,7 @@ class ByzantineDetector:
                 if norm_i == 0 or norm_j == 0:
                     sim = 0.0
                 else:
-                    sim = float(np.dot(updates[i], updates[j]) / (norm_i * norm_j))
+                    sim = float(np.dot(updates[i].ravel(), updates[j].ravel()) / (norm_i * norm_j))
                 sim_matrix[i, j] = sim
                 sim_matrix[j, i] = sim
         return sim_matrix
