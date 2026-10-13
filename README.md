@@ -1,173 +1,82 @@
-# Federated Learning Flamby Ehr
+# Federated Learning FLAMBǶ EHR
 
-> **Domain:** Privacy-Preserving Healthcare & Federated Computing
-> **Reference Guidelines & Standards:** `HIPAA Safe Harbor §164.514 & Differential Privacy RDP`
+Research prototype for simulated EHR task evaluation and selected federated-learning utilities. The source includes a local FastAPI operations console, command-line tools, numerical aggregators, non-IID dataset partitioners, and experimental secret-sharing helpers.
 
-<div align="center">
+**Scope:** This is not a complete FLAMBǶ integration or a working cross-hospital federated training system. It does not train models on FLAMBǶ datasets, coordinate actual hospital nodes, provide end-to-end secure aggregation, or implement production-grade differential privacy, homomorphic encryption, or clinical validation.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Available functionality
 
-</div>
+- **Local evaluation service:** three deterministic workers review synthetic task metrics and emit an urgency dossier. Exposes `GET /`, `GET /health`, `GET /metrics`, `POST /api/audit`, `POST /api/chat`, and `GET /api/audit/logs`.
+- **CLI and CSV batch mode:** evaluate example records, export results, inspect the current in-process audit chain, and run a synthetic workload.
+- **Federated numerical utilities:** weighted FedAvg, Krum, Multi-Krum, coordinate-wise trimmed mean, cosine-based anomaly screening, and Dirichlet/label-skew dataset partitioners (NumPy).
+- **Experimental dropout utilities:** Shamir reconstruction with Feldman share commitments and per-round dropout tracking. The included 61-bit share field and 67-bit commitment group are **not sized for production cryptographic security**.
+- **In-memory HMAC-SHA256 audit chain:** verifies individual entry signatures and chain linkage; records are lost when the process exits.
+- **Operations console:** a responsive local HTML page that requires the Python API. If the server is unavailable, it reports an error rather than manufacturing results.
 
----
+The “chat” provider factory currently returns a deterministic mock for every provider setting, including settings named after external providers. No external model API calls are implemented.
 
-## 📖 What It Does
+## Local installation
 
-**Federated Learning Flamby Ehr** is a federated learning platform implementing Federated Averaging (FedAvg) & Secure Aggregation (SecAgg) for multi-hospital EHR analytics. It provides a multi-worker evaluation system with Byzantine-resilient aggregation, verifiable secret sharing for dropout resilience, and strict PHI (Protected Health Information) outbound guardrails.
-
----
-
-## ⚙️ Key Capabilities & Algorithmic Modules
-
-- **Multi-Worker Evaluation**: Three specialized workers (InvariantQC, SafetyEscalation, ProtocolConformance) evaluate tasks in parallel
-- **Byzantine-Resilient Aggregation**: Krum, Multi-Krum, and Trimmed Mean algorithms to detect and reject poisoned model updates
-- **Verifiable Secret Sharing (VSS)**: Feldman VSS for dropout-resilient SecAgg
-- **Zero-PHI Outbound Guard**: AST and regex inspection blocking SSNs, MRNs, phone numbers, emails, and patient identifiers
-- **HMAC-SHA256 Audit Trail**: Cryptographically chained, tamper-evident logging
-- **Cross-Silo Data Partitioning**: Dirichlet, quantity skew, label skew strategies for non-IID hospital data
-- **Active Learning Calibration**: Bayesian worker reliability weight tracking
-- **FastAPI REST API**: OpenAPI 3.1 endpoints with Prometheus telemetry
-
----
-
-## 🚀 Quickstart
-
-### Prerequisites
-- Python 3.9+
-- Set the `AUDIT_SECRET_KEY` environment variable (minimum 16 characters)
+Requires Python 3.9+ and a strong random audit key.
 
 ```bash
-# Clone and setup
 git clone https://github.com/abusuraihsakhri/federated-learning-flamby-ehr.git
 cd federated-learning-flamby-ehr
-
-# Set required environment variable
-export AUDIT_SECRET_KEY="your-secure-key-here"  # Linux/macOS
-set AUDIT_SECRET_KEY=your-secure-key-here        # Windows
-```
-
-### Install Dependencies
-```bash
-pip install fastapi uvicorn pydantic pytest
-```
-
-### Generate a Secure Audit Key
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
-
----
-
-## 💻 CLI Usage
-
-### Single Task Evaluation
-```bash
-python cli.py audit --task-id TASK-001 --target KEY-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
-```
-
-### Batch CSV Processing
-```bash
-python cli.py batch -i sample.csv -o results.csv
-```
-
-### Supervisory Chat
-```bash
-python cli.py chat "What is the system status?"
-```
-
-### Verify Audit Trail
-```bash
-python cli.py verify-audit
-```
-
-### Launch REST API Server
-```bash
+python -m venv .venv
+source .venv/bin/activate           # Windows: .venv\Scripts\activate
+python -m pip install -e .
+export AUDIT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
-### High-Throughput Simulation
+Open [the local operations console](http://127.0.0.1:8000/) in your browser. The API documentation is at `/docs`. In Windows PowerShell, set the environment variable with `$env:AUDIT_SECRET_KEY = "<random-key>"` instead of `export`.
+
+Example commands (with `AUDIT_SECRET_KEY` set):
+
 ```bash
-python simulator.py --tasks 1000 --seed 42
+python cli.py audit --task-id DEMO-001 --target SYNTHETIC-001 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
+python cli.py batch -i sample.csv -o results.csv
+python cli.py verify-audit
+python simulator.py --tasks 100 --seed 42
 ```
 
----
+For the legacy `federated_learning_ehr` CLI, use `python federated_learning_ehr_app.py --help`. Its demonstration evaluation path is separate from the main `agents` API.
 
-## 🐳 Docker Deployment
+## Docker
 
 ```bash
-# Copy and customize environment
 cp .env.example .env
-# Edit .env with your secure AUDIT_SECRET_KEY
-
-# Build and run
+# Replace AUDIT_SECRET_KEY= with a randomly generated secret (at least 16 characters).
 docker compose up --build
-# API available at http://localhost:8000
 ```
 
----
+The Compose configuration binds port 8000 to localhost, not every network interface. The Python API must run on a server; GitHub Pages cannot host the full service or safely retain its secret signing key. **No live GitHub Pages application is claimed or linked.**
 
-## 🛡️ Security Architecture
-
-* **Zero-PHI Outbound Interceptor:** Blocks SSNs, MRNs, phone numbers, emails, DOB patterns, and known patient name patterns from any outbound data stream.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition. Key must be provided via `AUDIT_SECRET_KEY` environment variable.
-* **Byzantine Detection:** Cosine similarity-based anomaly detection flags compromised hospital nodes with configurable trust score decay.
-* **Secure Defaults:** No hardcoded secrets; audit key required at startup with minimum 16-character length enforcement.
-
----
-
-## 🧪 Testing
+## Testing
 
 ```bash
-# Set test key and run full suite
+python -m pip install -e ".[test]"
 export AUDIT_SECRET_KEY="test-audit-secret-key-for-pytest-suite-2026"
 pytest -v
 ```
 
-Test coverage includes:
-- PHI guard enforcement (SSN, MRN, email blocking)
-- Specialized worker alert generation
-- Supervisor consensus and audit integrity
-- Audit key validation and short-key rejection
-- Batch CSV processing with malformed row handling
-- Simulator deterministic output with seed control
+GitHub Actions tests Python 3.10, 3.11, and 3.12, checks syntax, and builds a distributable wheel. Browser JavaScript is syntax-checked when Node.js is available.
 
----
+## Privacy, security, and limitations
 
-## 📁 Project Structure
+**Use synthetic data only. Do not enter patient identifiers, clinical records, secrets, or other protected health information.** The project has no user authentication, authorization, TLS termination, encrypted database, or durable audit-log storage. Its regex-based identifier guard catches selected patterns but **cannot establish HIPAA Safe Harbor de-identification or GDPR compliance**. The local browser console sends inputs to the running FastAPI server; it does not process EHR records entirely in the browser. Numerical aggregation, experimental VSS, and simulated scoring must not be interpreted as deployed secure aggregation or clinical decision support.
 
-```
-federated-learning-flamby-ehr/
-├── agents/                        # Core evaluation workers and API
-│   ├── base.py                    # PHI guard, audit trail, security exceptions
-│   ├── supervisor.py              # Multi-worker orchestrator
-│   ├── workers.py                 # InvariantQC, SafetyEscalation, ProtocolConformance
-│   ├── models.py                  # Pydantic schemas
-│   ├── api.py                     # FastAPI endpoints
-│   ├── learning.py                # Bayesian calibration engine
-│   ├── metrics.py                 # Prometheus exporter
-│   └── streamer.py                # WebSocket telemetry
-├── federated_learning_ehr/        # Federated learning algorithms
-│   ├── byzantine_aggregators.py   # Krum, Multi-Krum, Trimmed Mean
-│   ├── dropout_handler.py         # Verifiable Secret Sharing for dropout resilience
-│   ├── partitioner.py             # Non-IID data partitioning strategies
-│   ├── engine.py                  # Domain evaluation engine
-│   └── agents.py                  # Federated coordinator and sub-agents
-├── tests/                         # Pytest test suite
-├── web/index.html                 # Operations console UI
-├── cli.py                         # Main CLI entry point
-├── simulator.py                   # High-throughput testing simulator
-├── enrichment.py                  # Feature evaluation engines
-├── docker-compose.yml             # Container orchestration
-└── pyproject.toml                 # Project metadata
-```
+The dependency-free `enrichment.py` module provides threshold-based illustrative checks; its named features do not implement the named production algorithms. Actual FLAMBǶ dataset loading, training rounds, and independently validated privacy guarantees remain future work.
 
----
+## Repository layout
 
-## 📄 License
+- `agents/` — synthetic evaluation workers, HMAC ledger, API, and mock model provider
+- `federated_learning_ehr/` — numerical aggregation, partitioning, experimental VSS, and legacy CLI
+- `web/` — operations console, packaged with the Python distribution
+- `cli.py` and `simulator.py` — main CLI and synthetic workload
+- `tests/` — unit, integration, and regression tests
+- `.github/workflows/ci.yml` — CI on pull requests and master/main pushes
 
-MIT License - see [LICENSE](LICENSE) for details.
+## License
+
+MIT — see [LICENSE](LICENSE).
