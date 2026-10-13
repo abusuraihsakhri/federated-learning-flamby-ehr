@@ -152,3 +152,20 @@ def test_simulation_rejects_empty_workloads():
     from simulator import run_simulation
     with pytest.raises(ValueError, match="positive"):
         run_simulation(0)
+
+
+def test_cosine_detector_does_not_flag_agreeing_majority():
+    from federated_learning_ehr.byzantine_aggregators import ByzantineDetector
+    detector = ByzantineDetector()
+    anomalies = detector.detect_anomalies(
+        ["hospital_1", "hospital_2", "hospital_3"],
+        [np.array([1., 0.]), np.array([1., 0.]), np.array([-1., 0.])]
+    )
+    assert anomalies == {"hospital_1": False, "hospital_2": False, "hospital_3": True}
+
+
+def test_mock_provider_does_not_claim_clinical_verification():
+    from agents.llm_factory import LLMFactory
+    answer = LLMFactory.create("openai").invoke("Is the example within bounds?")
+    assert "Mock Response" in answer
+    assert "No clinical verification" in answer
