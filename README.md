@@ -1,8 +1,8 @@
-# Federated Learning FLAMBǶ EHR
+# Federated Learning FLamby EHR
 
 Research prototype for simulated EHR task evaluation and selected federated-learning utilities. The source includes a local FastAPI operations console, command-line tools, numerical aggregators, non-IID dataset partitioners, and experimental secret-sharing helpers.
 
-**Scope:** This is not a complete FLAMBǶ integration or a working cross-hospital federated training system. It does not train models on FLAMBǶ datasets, coordinate actual hospital nodes, provide end-to-end secure aggregation, or implement production-grade differential privacy, homomorphic encryption, or clinical validation.
+**Scope:** This is not a complete FLamby integration or a working cross-hospital federated training system. It does not train models on FLamby datasets, coordinate actual hospital nodes, provide end-to-end secure aggregation, or implement production-grade differential privacy, homomorphic encryption, or clinical validation.
 
 ## Available functionality
 
@@ -66,7 +66,7 @@ GitHub Actions tests Python 3.10, 3.11, and 3.12, checks syntax, and builds a di
 
 **Use synthetic data only. Do not enter patient identifiers, clinical records, secrets, or other protected health information.** The project has no user authentication, authorization, TLS termination, encrypted database, or durable audit-log storage. Its regex-based identifier guard catches selected patterns but **cannot establish HIPAA Safe Harbor de-identification or GDPR compliance**. The local browser console sends inputs to the running FastAPI server; it does not process EHR records entirely in the browser. Numerical aggregation, experimental VSS, and simulated scoring must not be interpreted as deployed secure aggregation or clinical decision support.
 
-The dependency-free `enrichment.py` module provides threshold-based illustrative checks; its named features do not implement the named production algorithms. Actual FLAMBǶ dataset loading, training rounds, and independently validated privacy guarantees remain future work.
+The dependency-free `enrichment.py` module provides threshold-based illustrative checks; its named features do not implement the named production algorithms. Actual FLamby dataset loading, training rounds, and independently validated privacy guarantees remain future work.
 
 ## Repository layout
 
