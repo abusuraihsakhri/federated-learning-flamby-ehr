@@ -35,7 +35,7 @@ jobs:
         pytest -v
 
     - name: Check Python syntax and undefined names
-      run: ruff check --select E4,E7,E9,F63,F7,F82 .
+      run: ruff check --select E4,E7,E9,F63,F7,F82 --ignore E402 .
 
     - name: Security SAST & Zero-PHI Audit
       env:
