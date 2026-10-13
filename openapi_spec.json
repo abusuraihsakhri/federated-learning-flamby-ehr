@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Federated Learning Flamby Ehr API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
+    "description": "Local research API for deterministic synthetic task evaluation; not clinical decision support.",
     "version": "3.0.0-ENTERPRISE",
     "contact": {
       "name": "Dr. Abu Suraih Sakhri",
@@ -22,10 +22,10 @@
     },
     "/metrics": {
       "get": {
-        "summary": "Prometheus operational metrics",
+        "summary": "Current in-memory service counters and status (JSON)",
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "JSON metric counters and operational state"
           }
         }
       }
@@ -76,7 +76,7 @@
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
+        "summary": "Return a deterministic mock supervisory response",
         "requestBody": {
           "content": {
             "application/json": {
@@ -103,10 +103,20 @@
     },
     "/api/audit/logs": {
       "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
+        "summary": "Return the in-memory HMAC audit trail and verification status",
         "responses": {
           "200": {
             "description": "Cryptographic audit trail"
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Local operations console",
+        "responses": {
+          "200": {
+            "description": "HTML operations console"
           }
         }
       }
